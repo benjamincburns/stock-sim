@@ -1,0 +1,7 @@
+pandas>=2.0.0
+numpy>=1.24.0
+pyxirr>=0.10.0
+numba>=0.58.0
+PyYAML>=6.0
+pytest>=8.0.0
+

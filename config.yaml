@@ -1,0 +1,156 @@
+simulation_parameters:
+  initial_investment: 100000
+  monthly_contribution: 1000
+  years: 15
+  rebalance_threshold: 0.05
+  risk_free_rate: 0.02
+  num_simulations: 1000
+
+advanced_modeling:
+  use_stochastic_recovery: true
+  recovery_uncertainty: 0.15
+  cap_individual_losses: true
+  asymmetric_rebalancing: true
+
+goal_seeking:
+  enable: false
+  metric: "P5_Final_Value"
+  target_value: 500000
+  search_min_years: 5
+  search_max_years: 40
+  tolerance: 5000
+
+portfolios:
+  Portfolio_1:
+    VTI: 0.50
+    VXUS: 0.20
+    GOVT: 0.15
+    IGOV: 0.15
+  Portfolio_2:
+    VTI: 0.20
+    VXUS: 0.50
+    GOVT: 0.15
+    IGOV: 0.15
+  Portfolio_3_50_50:
+    VOO: 0.36
+    VEA: 0.14
+    GOVT: 0.25
+    IGOV: 0.25
+  Portfolio_3_60_40:
+    VOO: 0.43
+    VEA: 0.17
+    GOVT: 0.20
+    IGOV: 0.20
+  Portfolio_3_70_30:
+    VOO: 0.50
+    VEA: 0.20
+    GOVT: 0.15
+    IGOV: 0.15
+  Portfolio_3_80_20:
+    VOO: 0.57
+    VEA: 0.23
+    GOVT: 0.10
+    IGOV: 0.10
+  Portfolio_4:
+    VOO: 0.20
+    VEA: 0.50
+    GOVT: 0.15
+    IGOV: 0.15
+  Portfolio_5:
+    VT: 0.70
+    GOVT: 0.15
+    IGOV: 0.15
+  VOO_100:
+    VOO: 1.0
+
+scenarios:
+  "Severe Crash (18m/48m)":
+    crash_duration: 18
+    recovery_duration: 48
+  "Moderate Crash (12m/36m)":
+    crash_duration: 12
+    recovery_duration: 36
+  "Rapid Crash (6m/18m)":
+    crash_duration: 6
+    recovery_duration: 18
+  "No Crash (0m/0m)":
+    crash_duration: 0
+    recovery_duration: 0
+
+asset_assumptions:
+  tickers: ["VOO", "VTI", "VEA", "VXUS", "VT", "GOVT", "IGOV"]
+  targets:
+    VOO:
+      crash_total_return: -0.55
+      recovery_target_value: 1.0
+      growth_annual_return: 0.09
+    VTI:
+      crash_total_return: -0.5225
+      recovery_target_value: 1.0
+      growth_annual_return: 0.09
+    VEA:
+      crash_total_return: -0.4675
+      recovery_target_value: 1.0
+      growth_annual_return: 0.08
+    VXUS:
+      crash_total_return: -0.484
+      recovery_target_value: 1.0
+      growth_annual_return: 0.08
+    VT:
+      crash_total_return: -0.507
+      recovery_target_value: 1.0
+      growth_annual_return: 0.09
+    GOVT:
+      crash_total_return: 0.15
+      recovery_target_value: 1.0
+      growth_annual_return: 0.03
+    IGOV:
+      crash_total_return: 0.15
+      recovery_target_value: 1.0
+      growth_annual_return: 0.03
+  volatility:
+    VOO:
+      crash: 0.08
+      recovery: 0.06
+      growth: 0.045
+    VTI:
+      crash: 0.08
+      recovery: 0.06
+      growth: 0.045
+    VEA:
+      crash: 0.085
+      recovery: 0.065
+      growth: 0.05
+    VXUS:
+      crash: 0.09
+      recovery: 0.07
+      growth: 0.055
+    VT:
+      crash: 0.082
+      recovery: 0.062
+      growth: 0.047
+    GOVT:
+      crash: 0.015
+      recovery: 0.010
+      growth: 0.008
+    IGOV:
+      crash: 0.016
+      recovery: 0.011
+      growth: 0.009
+  correlations:
+    crash:
+      - [1.00, 0.98, 0.90, 0.90, 0.95, -0.60, -0.55]
+      - [0.98, 1.00, 0.90, 0.90, 0.97, -0.60, -0.55]
+      - [0.90, 0.90, 1.00, 0.95, 0.92, -0.50, -0.50]
+      - [0.90, 0.90, 0.95, 1.00, 0.93, -0.50, -0.50]
+      - [0.95, 0.97, 0.92, 0.93, 1.00, -0.58, -0.53]
+      - [-0.60, -0.60, -0.50, -0.50, -0.58, 1.00, 0.70]
+      - [-0.55, -0.55, -0.50, -0.50, -0.53, 0.70, 1.00]
+    recovery_growth:
+      - [1.00, 0.98, 0.75, 0.75, 0.85, 0.10, 0.10]
+      - [0.98, 1.00, 0.75, 0.75, 0.88, 0.10, 0.10]
+      - [0.75, 0.75, 1.00, 0.85, 0.80, 0.10, 0.15]
+      - [0.75, 0.75, 0.85, 1.00, 0.82, 0.10, 0.15]
+      - [0.85, 0.88, 0.80, 0.82, 1.00, 0.10, 0.12]
+      - [0.10, 0.10, 0.10, 0.10, 0.10, 1.00, 0.60]
+      - [0.10, 0.10, 0.15, 0.15, 0.12, 0.60, 1.00]
