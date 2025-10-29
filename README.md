@@ -1,23 +1,34 @@
 # Portfolio Stress Test Simulation
 
-A high-performance Monte Carlo simulation tool for portfolio stress testing with advanced statistical modeling and goal-seeking capabilities.
+A Monte Carlo simulation tool for comparative stress testing of long term passive ETF portfolios.
+
+This tool was primarily built to compare the relative performance of various rebalancing strategies under varying market shock scenarios. It does not and can not accurately predict actual returns, price movements, risk, return timelines, or any other performance metrics. It is only useful when comparing the performance outcomes of one strategy to the outcomes of another, and even then it's only likely to be informative in the case where the magnitude of those differences is substantial.
 
 > [!WARNING]
-> I wouldn't recommend using this without reading the code very carefully. It's something I knocked together to compare the relative performance of a few different long-term investment strategies that I've been considering. It was largely written by AI, as may be evident from the verbose comments.
+> This tool is for educational and planning purposes only. It is NOT financial advice. The default statistical assumptions encoded in this tool and its configuration may vary widely from actual market dynamics. Use at your own risk.
 
-This tool stress-tests simple ETF portfolios with configurable rebalancing strategies by simulating a market crash, followed by a market recovery, and then a period of stable growth. It does not consider taxes or trade commissions, but it does produce estimated counts of sell trades (see rebalancing count in output), which works as a proxy for these drags on simple passive portfolios.
+> [!NOTE]
+> This project was largely written by AI. While I have supervised carefully and tested manually to ensure that it conforms to a range of verifiable assumptions, I haven't exhaustively checked for bugs or validated the coverage or quality of the AI-written unit tests. Some portions of this document were also AI-generated, but it is mostly human-written, and the AI-generated portions have been closely scrutinized.
 
-## Why?
+## Simulation Dynamics
 
-This tool was built to compare the performance of two alternative rebalancing strategies.
+The simulation engine uses the Monte Carlo method, which means it runs a configurable number (default 1,000) of independent simulations, using a different random seed during each simulation run. This allows the model to explore a wide range of potential outcomes and produce a statistical distribution of the final portfolio performance and risk metrics.
+
+For each simulation, monthly price movements are generated for each asset by sampling a multivariate normal distribution. The shape of this distribution is defined by configurable volatility metrics for each asset and a correlation matrix that describes how the prices of assets tend to move relative to one another. These parameters are configurable for each scenario phase in the timeline (crash, recovery, stable growth). The default values of these parameters are intended to simulate common historical trends. For example, the defaults assume that investors will race to safety during a crash, causing stocks to correlate more strongly with eachother than usual, while high-quality government bonds become less correlated with stocks.
+
+Each simulation then progresses month by month over the specified time horizon using the generated price data. The simulation begins with the initial investment allocated according to the target weights. Then for each month, the simulation performs actions in a specific order: first, the monthly contribution is added and allocated to purchase assets according to the selected rebalancing strategy. Second, the portfolio is checked against its target allocations to determine if a rebalancing trade is necessary. If it is, a rebalancing event is recorded. Finally, the pre-generated market returns for that month are applied to the new holdings to determine the portfolio's value at the end of the month.
+
+To add realism, the simulation includes an optional "stochastic recovery" feature that is enabled by default. When enabled, the recovery target for each asset is randomized within a configurable range, preventing the recovery phase from being perfectly predictable. The model also uses geometric mean calculations to derive the average monthly returns for the crash and recovery phases, ensuring that the total returns for those periods align with the scenario's targets. To avoid extreme, unrealistic single-month price movements, all generated monthly returns are clipped to a [-30%, +30%] range.
+
+## Rebalancing Strategies
 
 Rebalancing is the process of trading the existing assets in a portfolio to make the proportion of each asset align with a desired target allocation.
 
 For example, suppose you decide you want 70% stocks and 30% bonds. Over time, the stocks grow more quickly, and your portfolio drifts to 80% stocks and 20% bonds. Rebalancing is how you correct this drift.
 
-A multitude of rebalancing strategies exist, however this simulator was intended to test two particular strategies. You can select the strategy to be used for your simulation by passing command line flags at runtime (see output of `python sim.py --help`).
+A multitude of rebalancing strategies exist, however this simulator implements two particular strategies. You can select the strategy to be used for your simulation by passing command line flags at runtime (see `--rebalancing-strategy` in output of `python sim.py --help`).
 
-### Rebalancing Strategy 1: Tight rebalancing
+### Tight, Symmetric Rebalancing
 
 In this strategy, the target allocation for each asset is banded by an absolute 5%. For example, a 10% target would be "in-band" if the asset represents between 5% and 15% of the total portfolio value. If an asset's allocation falls outside this band, rebalancing occurs as follows:
 - The monthly contribution is used to buy assets that are "underweight," prioritizing those furthest below their target.
@@ -25,7 +36,7 @@ In this strategy, the target allocation for each asset is banded by an absolute 
 
 This strategy is symmetric, as it can trigger sell orders regardless of whether an asset is below or above its band.
 
-### Rebalancing Strategy 2: Loose rebalancing (default)
+### Loose, Asymmetric Rebalancing (default)
 
 In this "asymmetric" strategy, the rebalancing band is relative to the target allocation. Specifically, the lower bound is 50% of the target, and the upper bound is 200% of the target. For example, if an asset's target is 10%, its allocation is considered in-band between 5% and 20%. For a 20% target, the band would be 10% to 40%. The rebalancing rules are as follows:
 
@@ -33,24 +44,17 @@ In this "asymmetric" strategy, the rebalancing band is relative to the target al
 - If an asset's proportion rises above its upper band, sell enough of it to bring it back into band.
 - If an asset's proportion falls below its lower band, do nothing. We rely on future buy orders to bring the asset back into band over time.
 
-This strategy is asymmetric because it only triggers sell orders when assets are significantly overvalued relative to the portfolio. It is more cost-optimized, triggering fewer total orders and taxable events. For this strategy to work effectively, you must be making regular portfolio contributions.
+This strategy is asymmetric because it only triggers sell orders in order to prevent excessive exposure to assets or asset classes that are likely overvalued.
+
+Compared to the tight, symmetric strategy above, it is more cost-optimized, as it triggers fewer sells, and fewer total orders overall. It also tends to capture more upside during bull market trends, and limits drawdowns during bear market trends.
+
+This strategy introduces an important behavioral dependency that comes with a hidden risk: it is only effective if the investor consistently makes contributions that are large enough to correct portfolio drift. The simulation assumes this behavior occurs without fail and does not model the risk of portfolio drift resulting from missed contributions.
 
 ## Configuration
 
 See `config.yaml` for all configurable parameters.
 
-Price movements are produced by sampling a random probability distribution. The distribution for each asset is generated using static volatility and correlation matrices that are configurable for each phase of the test (crash, recovery, stable growth). The defaults simulate common historical trends, such as the high correlation of stocks during a market crash.
-
-## 🚀 Features
-
-- **📊 Comprehensive Risk Analysis:** VaR, CVaR, Sharpe ratio, and drawdown analysis.
-- **🎯 Goal-Seeking Mode:** Find the time required to reach financial targets.
-- **🔬 Advanced Statistical Modeling:** Simulates market crashes and recoveries with proper correlation structures.
-- **⚙️ Fully Configurable:** A command-line interface for all parameters.
-- **📈 Multiple Scenarios:** Test portfolios against severe, moderate, rapid, and no-crash scenarios.
-- **⚡ High Performance:** Numba-optimized for simulations that are 10-50x faster than pure Python.
-
-## 📋 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -67,10 +71,10 @@ python sim.py
 # Custom parameters
 python sim.py --years 20 --monthly-contribution 2000
 
-# Find time to reach $500K (VaR 95% confidence)
+# Find time to reach $500K (VaR 95% confidence aka 5th percentile expected returns)
 python sim.py --goal-p5 --goal-target 500000
 
-# Find time to reach $500K (median outcome)
+# Find time to reach $500K (median outcome, 50% confidence)
 python sim.py --goal-median --goal-target 500000
 ```
 
@@ -80,97 +84,7 @@ python sim.py --goal-median --goal-target 500000
 python sim.py --help
 ```
 
-## 🎯 Common Use Cases
-
-### 1. Retirement Planning
-
-Find how long until you can retire with $750K (95% confidence):
-
-```bash
-python sim.py --goal-p5 \
-              --goal-target 750000 \
-              --initial-investment 100000 \
-              --monthly-contribution 2000
-```
-
-### 2. Compare Different Savings Rates
-
-```bash
-# Conservative
-python sim.py --monthly-contribution 1000 > results_1k.txt
-
-# Moderate
-python sim.py --monthly-contribution 1500 > results_1.5k.txt
-
-# Aggressive
-python sim.py --monthly-contribution 2500 > results_2.5k.txt
-```
-
-### 3. High-Precision Analysis
-
-```bash
-python sim.py --num-simulations 10000
-```
-
-### 4. Quick Testing
-
-```bash
-python sim.py --num-simulations 100 --years 10
-```
-
-## 📊 Sample Output
-
-The simulation provides two types of analysis:
-
-### Standard Mode Output
-- Portfolio compositions
-- Monte Carlo results across 4 scenarios
-- Performance metrics: returns, volatility, Sharpe ratio
-- Risk metrics: VaR, CVaR, drawdowns
-- Rebalancing statistics
-
-### Goal-Seeking Mode Output
-- Time to reach financial target for each portfolio
-- Results by scenario (crash timing sensitivity)
-- Final values and safety cushions at goal
-
-## 🔬 Methodology & Performance
-
-### Simulation Engine
-- **Monte Carlo Method:** Runs 1,000 simulations per scenario (configurable) to model a wide range of outcomes.
-- **Return Generation:** Uses a multivariate normal distribution to generate monthly returns, preserving the specified correlation structure for each market phase.
-- **Optimization:** Numba JIT compilation provides a 10-50x speedup over pure Python. The engine also relies on vectorized NumPy operations and multiprocessing for parallel scenario execution.
-
-### Scenarios Tested
-1.  **Severe Crash:** 18-month crash, 48-month recovery
-2.  **Moderate Crash:** 12-month crash, 36-month recovery
-3.  **Rapid Crash:** 6-month crash, 18-month recovery (V-shape)
-4.  **No Crash:** Steady growth over the entire period
-
-### Risk Metrics
-- **VaR (Value at Risk):** 95th percentile confidence level (p5 value in report).
-- **CVaR (Conditional VaR):** Average of the worst 5% of outcomes.
-- **Sharpe Ratio:** A measure of risk-adjusted return.
-- **Maximum Drawdown:** The largest peak-to-trough decline in portfolio value.
-
-### Performance Benchmarks
-*(on an 8-core M1 Pro CPU)*
-- **Standard Mode:** 4,000 simulations in ~6 seconds
-- **Goal-Seeking Mode:** ~30-60 seconds per portfolio/scenario
-- **High Precision (10K sims):** ~60 seconds
-
 ## 🛠️ Development
-
-### Running Analyses
-You can run quick analyses with fewer simulations for faster feedback.
-
-```bash
-# Quick run with 100 simulations
-python sim.py --num-simulations 100
-
-# Run goal-seeking with 100 simulations
-python sim.py --goal-p5 --goal-target 500000 --num-simulations 100
-```
 
 ### Running Tests
 The project includes a test suite that can be run with `pytest`.
@@ -182,7 +96,7 @@ pytest
 
 ## 🎓 Educational Use
 
-This tool is excellent for learning about:
+This tool can be used for learning about:
 - Monte Carlo simulation techniques
 - Portfolio risk analysis
 - Correlation effects in crashes
@@ -190,10 +104,6 @@ This tool is excellent for learning about:
 - Risk-adjusted returns (Sharpe ratio)
 - Tail risk (VaR/CVaR)
 - Sequence-of-returns risk
-
-## ⚠️ Disclaimer
-
-This tool is for educational and planning purposes only. It is NOT financial advice. Consult a qualified financial advisor before making investment decisions.
 
 **Model Limitations:**
 - Simplified return distributions (assumes normality)
@@ -204,7 +114,7 @@ This tool is for educational and planning purposes only. It is NOT financial adv
 
 ## 📄 License
 
-This project is unlicensed, but you are free to use it for educational and personal purposes. For broader use, consider adding a standard open-source license like the [MIT License](https://opensource.org/licenses/MIT).
+This project is MIT licensed. See [LICENSE](LICENSE.md) for license text.
 
 ## 🙏 Acknowledgments
 
