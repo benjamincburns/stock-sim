@@ -136,7 +136,7 @@ class TestScenarioReturns:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         scenario = ScenarioConfig("No Crash", 0, 0)
         
@@ -168,7 +168,7 @@ class TestScenarioReturns:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         returns_array, tickers = generate_scenario_returns_array(scenario, sim_config, asset_config, seed=42)
@@ -205,7 +205,7 @@ class TestScenarioReturns:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         returns1, _ = generate_scenario_returns_array(scenario, sim_config, asset_config, seed=123)
@@ -229,7 +229,7 @@ class TestScenarioReturns:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         returns1, _ = generate_scenario_returns_array(scenario, sim_config, asset_config, seed=123)
@@ -259,7 +259,7 @@ class TestPortfolioMetrics:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         metrics = calculate_portfolio_metrics(portfolio_values, sim_config, rebalance_count=0)
@@ -293,7 +293,7 @@ class TestPortfolioMetrics:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         metrics = calculate_portfolio_metrics(portfolio_values, sim_config, rebalance_count=0)

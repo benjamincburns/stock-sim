@@ -7,8 +7,20 @@ the necessary configuration objects for the simulation engine.
 import yaml
 from pathlib import Path
 from dataclasses import dataclass
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Any, Literal, NamedTuple
 import numpy as np
+
+
+class AssetTargets(NamedTuple):
+    crash_total_return: float
+    recovery_target_value: float
+    growth_annual_return: float
+
+
+class AssetVolatility(NamedTuple):
+    crash: float
+    recovery: float
+    growth: float
 
 
 @dataclass(frozen=True)
@@ -22,12 +34,10 @@ class SimulationConfig:
     risk_free_rate: float
     num_simulations: int
     base_seed: int
-    
-    # Advanced modeling options
     use_stochastic_recovery: bool
     recovery_uncertainty: float
     cap_individual_losses: bool
-    asymmetric_rebalancing: bool = True
+    rebalancing_strategy: Literal["symmetric", "asymmetric"] = "asymmetric"
     
     @property
     def total_invested(self) -> float:
@@ -39,7 +49,7 @@ class SimulationConfig:
 class GoalSeekingConfig:
     """Goal-seeking mode parameters."""
     enable_goal_seeking: bool
-    goal_metric: str  # "VaR_5pct" or "Median_Final_Value"
+    goal_metric: Literal["P5_Final_Value", "Median_Final_Value"]
     goal_target_value: float
     goal_search_min_years: int
     goal_search_max_years: int
@@ -49,16 +59,12 @@ class GoalSeekingConfig:
 @dataclass(frozen=True)
 class AssetConfig:
     """Asset characteristics including targets, volatility, and correlations."""
-    # Asset: (Crash Total Return, Recovery Target Value, Growth Annual Return)
-    asset_targets: Dict[str, Tuple[float, float, float]]
+    asset_targets: Dict[str, AssetTargets]
     
-    # Asset: (Crash Vol, Recovery Vol, Growth Vol)
-    asset_volatility: Dict[str, Tuple[float, float, float]]
+    asset_volatility: Dict[str, AssetVolatility]
     
-    # Ordered list of asset tickers
     asset_tickers_ordered: list
     
-    # Correlation matrices
     corr_crash: np.ndarray
     corr_rec_growth: np.ndarray
     
@@ -111,24 +117,22 @@ def _adjust_correlation_matrix(matrix: np.ndarray) -> np.ndarray:
 def create_asset_config(config: Dict[str, Any]) -> AssetConfig:
     """Create the asset configuration from the loaded YAML data."""
     
-    # The raw dicts from YAML use key-value pairs which need to be converted to tuples
-    # for the dataclass.
     asset_targets_raw = config['asset_assumptions']['targets']
     asset_targets = {
-        ticker: (
-            data['crash_total_return'], 
-            data['recovery_target_value'], 
-            data['growth_annual_return']
+        ticker: AssetTargets(
+            crash_total_return=data['crash_total_return'], 
+            recovery_target_value=data['recovery_target_value'], 
+            growth_annual_return=data['growth_annual_return']
         )
         for ticker, data in asset_targets_raw.items()
     }
     
     asset_volatility_raw = config['asset_assumptions']['volatility']
     asset_volatility = {
-        ticker: (
-            data['crash'], 
-            data['recovery'], 
-            data['growth']
+        ticker: AssetVolatility(
+            crash=data['crash'], 
+            recovery=data['recovery'], 
+            growth=data['growth']
         )
         for ticker, data in asset_volatility_raw.items()
     }

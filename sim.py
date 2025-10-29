@@ -20,18 +20,6 @@ import argparse
 from config import SimulationConfig, GoalSeekingConfig
 from reporting import StandardSimulationResults, GoalSeekingResults, print_standard_results, print_goal_seeking_results
 
-# --- Configuration Loading ---
-# All configuration is now loaded from config.yaml via the config module.
-# This section is intentionally left blank.
-
-# --- Dataclasses for Runtime Configuration ---
-# These dataclasses are populated at runtime from a combination of the config file
-# and command-line arguments.
-# (Moved to config.py)
-
-
-# --- Command-Line Interface and Main Execution ---
-
 def parse_command_line_arguments(app_config):
     """Parse command-line arguments and return configuration dictionary."""
     # Get default values from the loaded YAML config
@@ -60,7 +48,6 @@ Examples:
         """
     )
     
-    # Simulation parameters
     parser.add_argument('--initial-investment', type=float, default=defaults['initial_investment'],
                         help=f"Initial investment amount (default: ${defaults['initial_investment']:,.0f})")
     parser.add_argument('--monthly-contribution', type=float, default=defaults['monthly_contribution'],
@@ -74,7 +61,6 @@ Examples:
     parser.add_argument('--num-simulations', type=int, default=defaults['num_simulations'],
                         help=f"Number of Monte Carlo runs per scenario (default: {defaults['num_simulations']})")
     
-    # Advanced modeling options
     parser.add_argument('--use-stochastic-recovery', type=lambda x: x.lower() == 'true', 
                         default=defaults['use_stochastic_recovery'],
                         help=f"Enable stochastic recovery uncertainty (default: {defaults['use_stochastic_recovery']})")
@@ -83,11 +69,11 @@ Examples:
     parser.add_argument('--cap-individual-losses', type=lambda x: x.lower() == 'true',
                         default=defaults['cap_individual_losses'],
                         help=f"Prevent individual holdings from going negative (default: {defaults['cap_individual_losses']})")
-    parser.add_argument('--asymmetric-rebalancing', type=lambda x: x.lower() == 'true',
-                        default=defaults.get('asymmetric_rebalancing', True),
-                        help=f"Use asymmetric rebalancing strategy (default: {defaults.get('asymmetric_rebalancing', True)})")
+    parser.add_argument('--rebalancing-strategy', type=str,
+                        choices=['symmetric', 'asymmetric'],
+                        default=defaults.get('rebalancing_strategy', 'asymmetric'),
+                        help=f"Rebalancing strategy (default: {defaults.get('rebalancing_strategy', 'asymmetric')})")
     
-    # Goal-seeking mode
     parser.add_argument('--enable-goal-seeking', type=lambda x: x.lower() == 'true',
                         default=None, nargs='?', const=True,
                         help='Enable goal-seeking mode to find time to reach target (auto-enabled if any --goal-* arg used)')
@@ -143,7 +129,7 @@ Examples:
         'use_stochastic_recovery': args.use_stochastic_recovery,
         'recovery_uncertainty': args.recovery_uncertainty,
         'cap_individual_losses': args.cap_individual_losses,
-        'asymmetric_rebalancing': args.asymmetric_rebalancing,
+        'rebalancing_strategy': args.rebalancing_strategy,
         'enable_goal_seeking': enable_goal_seeking_final,
         'goal_metric': goal_metric_final,
         'goal_target_value': args.goal_target_value if args.goal_target_value is not None else defaults['target_value'],
@@ -172,7 +158,7 @@ def run_standard_simulation(config, portfolios, scenarios, asset_config, base_se
         use_stochastic_recovery=config['use_stochastic_recovery'],
         recovery_uncertainty=config['recovery_uncertainty'],
         cap_individual_losses=config['cap_individual_losses'],
-        asymmetric_rebalancing=config['asymmetric_rebalancing']
+        rebalancing_strategy=config['rebalancing_strategy']
     )
     
     total_runs_overall = len(scenarios) * config['num_simulations']
@@ -269,7 +255,7 @@ def run_goal_seeking_analysis(config, portfolios, scenarios, asset_config, base_
         use_stochastic_recovery=config['use_stochastic_recovery'],
         recovery_uncertainty=config['recovery_uncertainty'],
         cap_individual_losses=config['cap_individual_losses'],
-        asymmetric_rebalancing=config['asymmetric_rebalancing']
+        rebalancing_strategy=config['rebalancing_strategy']
     )
     
     goal_config = GoalSeekingConfig(
@@ -302,7 +288,6 @@ def run_goal_seeking_analysis(config, portfolios, scenarios, asset_config, base_
     return GoalSeekingResults(results=goal_results_all)
 
 
-# --- Main Execution Block ---
 if __name__ == '__main__':
     overall_start_time = time.time()
     

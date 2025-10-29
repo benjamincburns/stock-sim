@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Dict, Any
+from typing import Dict, Any, Literal
 
 class ConfigValidationError(ValueError):
     """Custom exception for configuration validation errors."""
@@ -10,6 +10,9 @@ def validate_config(config: Dict[str, Any]):
     if 'simulation_parameters' not in config:
         raise ConfigValidationError("Missing 'simulation_parameters' section in config.")
     _validate_simulation_parameters(config['simulation_parameters'])
+
+    if 'advanced_modeling' in config:
+        _validate_advanced_modeling(config['advanced_modeling'])
 
     if 'portfolios' not in config:
         raise ConfigValidationError("Missing 'portfolios' section in config.")
@@ -36,6 +39,15 @@ def _validate_simulation_parameters(params: Dict[str, Any]):
     _check_in_range(params, 'rebalance_threshold', 0, 1)
     _check_positive(params, 'num_simulations')
 
+def _validate_advanced_modeling(params: Dict[str, Any]):
+    """Validate the 'advanced_modeling' section."""
+    if 'rebalancing_strategy' in params:
+        strategy = params['rebalancing_strategy']
+        if strategy not in ['symmetric', 'asymmetric']:
+            raise ConfigValidationError(
+                f"Invalid rebalancing_strategy '{strategy}'. Must be 'symmetric' or 'asymmetric'."
+            )
+
 def _validate_portfolios(portfolios: Dict[str, Dict[str, float]]):
     """Validate the 'portfolios' section."""
     if not portfolios:
@@ -51,7 +63,7 @@ def _validate_asset_assumptions(assumptions: Dict[str, Any]):
         raise ConfigValidationError("'asset_assumptions.tickers' must be a non-empty list.")
     
     num_tickers = len(tickers)
-
+    section: Literal['targets', 'volatility']
     for section in ['targets', 'volatility']:
         if section not in assumptions:
             raise ConfigValidationError(f"Missing '{section}' in 'asset_assumptions'.")
@@ -69,7 +81,7 @@ def _validate_asset_assumptions(assumptions: Dict[str, Any]):
     _validate_correlation_matrix(correlations.get('crash'), 'crash', num_tickers)
     _validate_correlation_matrix(correlations.get('recovery_growth'), 'recovery_growth', num_tickers)
 
-def _validate_correlation_matrix(matrix_data: list, name: str, num_tickers: int):
+def _validate_correlation_matrix(matrix_data: list, name: Literal['crash', 'recovery_growth'], num_tickers: int):
     """Validate a single correlation matrix."""
     if matrix_data is None:
         raise ConfigValidationError(f"Correlation matrix '{name}' is missing.")

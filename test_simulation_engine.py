@@ -48,7 +48,7 @@ class TestSingleIteration:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         scenario = SCENARIOS["No Crash (0m/0m)"]
         
@@ -89,7 +89,7 @@ class TestSingleIteration:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         scenario = SCENARIOS["Rapid Crash (6m/18m)"]
         
@@ -119,7 +119,7 @@ class TestSingleIteration:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         no_crash = SCENARIOS["No Crash (0m/0m)"]
@@ -156,7 +156,7 @@ class TestMultiprocessingBugFix:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         config_long = SimulationConfig(
@@ -171,7 +171,7 @@ class TestMultiprocessingBugFix:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         scenario = SCENARIOS["No Crash (0m/0m)"]
@@ -236,7 +236,7 @@ class TestRealisticSimulation:
             use_stochastic_recovery=False,
             recovery_uncertainty=0.15,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         scenario = SCENARIOS["No Crash (0m/0m)"]
@@ -273,7 +273,7 @@ class TestRealisticSimulation:
             use_stochastic_recovery=True,
             recovery_uncertainty=0.25,
             cap_individual_losses=True,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         sim_config_asymmetric = SimulationConfig(
@@ -288,7 +288,7 @@ class TestRealisticSimulation:
             use_stochastic_recovery=True,
             recovery_uncertainty=0.25,
             cap_individual_losses=True,
-            asymmetric_rebalancing=True
+            rebalancing_strategy="asymmetric"
         )
 
         scenario = SCENARIOS["Severe Crash (18m/48m)"]

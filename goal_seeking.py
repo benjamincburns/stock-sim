@@ -6,11 +6,17 @@ without relying on global variables.
 """
 import numpy as np
 import time
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple, Optional, NamedTuple
 
 from config import SimulationConfig, ScenarioConfig, AssetConfig, GoalSeekingConfig
 from returns_engine import generate_scenario_returns_array
 from simulation_engine import _simulate_portfolio_numba
+
+
+class GoalSeekingResult(NamedTuple):
+    values_array: Optional[np.ndarray]
+    months_stopped: Optional[int]
+    rebalance_counts: Optional[np.ndarray]
 
 
 def run_goal_seeking_simulation(
@@ -20,7 +26,7 @@ def run_goal_seeking_simulation(
     goal_config: GoalSeekingConfig,
     asset_config: AssetConfig,
     base_seed_offset: int
-) -> Tuple[Optional[np.ndarray], Optional[int], Optional[np.ndarray]]:
+) -> GoalSeekingResult:
     """
     Run simulations incrementally, stopping when the goal is reached.
     
@@ -33,7 +39,7 @@ def run_goal_seeking_simulation(
         base_seed_offset: Starting seed for reproducibility
         
     Returns:
-        Tuple of (values_array, months_stopped, rebalance_counts) where:
+        A GoalSeekingResult NamedTuple containing:
         - values_array: Portfolio values from month 0 to months_stopped
         - months_stopped: The month when goal was met (or max_months if not reached)
         - rebalance_counts: Array of rebalance counts for each simulation
@@ -54,12 +60,12 @@ def run_goal_seeking_simulation(
         use_stochastic_recovery=sim_config.use_stochastic_recovery,
         recovery_uncertainty=sim_config.recovery_uncertainty,
         cap_individual_losses=sim_config.cap_individual_losses,
-        asymmetric_rebalancing=sim_config.asymmetric_rebalancing
+        rebalancing_strategy=sim_config.rebalancing_strategy
     )
     
     growth_dur = max_months - scenario.crash_duration - scenario.recovery_duration
     if growth_dur < 0:
-        return None, None, None
+        return GoalSeekingResult(None, None, None)
     
     # Pre-generate ALL returns for all simulations
     sim_assets = list(allocation.keys())
@@ -72,7 +78,6 @@ def run_goal_seeking_simulation(
     for sim_idx in range(sim_config.num_simulations):
         seed = base_seed_offset + sim_idx
         
-        # Generate returns using refactored function
         returns_array, _ = generate_scenario_returns_array(scenario, extended_sim_config, asset_config, seed)
         
         if returns_array.shape[0] == 0:
@@ -83,7 +88,7 @@ def run_goal_seeking_simulation(
         all_sim_returns.append(portfolio_returns_array)
     
     if not all_sim_returns:
-        return None, None, None
+        return GoalSeekingResult(None, None, None)
     
     # Run simulations incrementally, stopping when goal is reached
     chunk_size_months = 1
@@ -106,19 +111,19 @@ def run_goal_seeking_simulation(
             values, rebalance_count, final_holdings = _simulate_portfolio_numba(
                 target_weights, chunk_returns, sim_config.monthly_contribution,
                 sim_config.initial_investment, sim_config.rebalance_threshold, min_months,
-                None, 0, sim_config.asymmetric_rebalancing
+                None, 0, sim_config.rebalancing_strategy
             )
             values_array[sim_idx, :min_months+1] = values
             sim_holdings[sim_idx] = final_holdings
             sim_rebalance_counts[sim_idx] = rebalance_count
         except Exception:
-            return None, None, None
+            return GoalSeekingResult(None, None, None)
     
     current_month = min_months
     
     # Check if goal is already met at min_months
     if _check_goal_reached(values_array[:, current_month], goal_config):
-        return values_array[:, :current_month+1], current_month, sim_rebalance_counts
+        return GoalSeekingResult(values_array[:, :current_month+1], current_month, sim_rebalance_counts)
     
     # Continue simulating in chunks until goal is reached or max_months
     while current_month < max_months:
@@ -132,7 +137,7 @@ def run_goal_seeking_simulation(
                 values, new_rebalance_count, final_holdings = _simulate_portfolio_numba(
                     target_weights, chunk_returns, sim_config.monthly_contribution,
                     sim_config.initial_investment, sim_config.rebalance_threshold, chunk_months,
-                    sim_holdings[sim_idx], sim_rebalance_counts[sim_idx], sim_config.asymmetric_rebalancing
+                    sim_holdings[sim_idx], sim_rebalance_counts[sim_idx], sim_config.rebalancing_strategy
                 )
                 
                 # Store new values (skip first value since it's the ending value from previous chunk)
@@ -140,16 +145,16 @@ def run_goal_seeking_simulation(
                 sim_holdings[sim_idx] = final_holdings
                 sim_rebalance_counts[sim_idx] = new_rebalance_count
             except Exception:
-                return None, None, None
+                return GoalSeekingResult(None, None, None)
         
         current_month = next_month
         
         # Check if goal is reached
         if _check_goal_reached(values_array[:, current_month], goal_config):
-            return values_array[:, :current_month+1], current_month, sim_rebalance_counts
+            return GoalSeekingResult(values_array[:, :current_month+1], current_month, sim_rebalance_counts)
     
     # Goal not reached by max_months
-    return values_array[:, :max_months+1], max_months, sim_rebalance_counts
+    return GoalSeekingResult(values_array[:, :max_months+1], max_months, sim_rebalance_counts)
 
 
 def _check_goal_reached(values_at_month: np.ndarray, goal_config: GoalSeekingConfig) -> bool:
@@ -190,16 +195,15 @@ def find_time_to_goal(
     Returns a dictionary with results including whether goal was reached,
     time taken, and various metrics.
     """
-    print(f"  Finding time to reach {goal_config.goal_metric} = ${goal_config.goal_target_value:,.0f} for {portfolio_name}...", flush=True)
+    print(f"  Finding time to reach {goal_config.goal_target_value:,.0f} for {portfolio_name}...", flush=True)
     
     base_seed_offset = int(time.time()) + hash(portfolio_name + scenario.name) % 10000
     
-    # Run simulations, stopping early if goal is reached
-    values_array, months_stopped, rebalance_counts = run_goal_seeking_simulation(
+    sim_result = run_goal_seeking_simulation(
         allocation, scenario, sim_config, goal_config, asset_config, base_seed_offset
     )
     
-    if values_array is None or months_stopped is None or rebalance_counts is None:
+    if sim_result.values_array is None or sim_result.months_stopped is None or sim_result.rebalance_counts is None:
         return {
             'portfolio': portfolio_name,
             'scenario': scenario.name,
@@ -211,8 +215,7 @@ def find_time_to_goal(
             'message': "Simulation failed"
         }
     
-    # Get values at the point where simulation stopped
-    values_at_month = values_array[:, -1]  # Last column = values at months_stopped
+    values_at_month = sim_result.values_array[:, -1]  # Last column = values at months_stopped
     
     # Calculate the aggregate metric at this point
     if goal_config.goal_metric == "Median_Final_Value":
@@ -225,7 +228,7 @@ def find_time_to_goal(
     # Check if goal was actually reached (vs hitting max_months)
     goal_was_reached = (metric_value >= goal_config.goal_target_value - goal_config.goal_tolerance)
     
-    years_reached = months_stopped / 12
+    years_reached = sim_result.months_stopped / 12
     
     if goal_was_reached:
         # Goal reached! Calculate metrics
@@ -237,7 +240,7 @@ def find_time_to_goal(
         
         # Calculate annualized return for median
         if years_reached > 0:
-            total_invested = sim_config.initial_investment + (months_stopped * sim_config.monthly_contribution)
+            total_invested = sim_config.initial_investment + (sim_result.months_stopped * sim_config.monthly_contribution)
             ann_return = ((median_val / total_invested) ** (1 / years_reached) - 1) * 100
             p5_ann_return = ((p5_val / total_invested) ** (1 / years_reached) - 1) * 100
         else:
@@ -245,10 +248,10 @@ def find_time_to_goal(
             p5_ann_return = 0
         
         # Vectorized calculation of volatility and Sharpe ratio
-        if values_array.shape[1] > 1:
+        if sim_result.values_array.shape[1] > 1:
             # Calculate monthly returns for all simulations at once, handling division by zero
-            safe_values = np.maximum(values_array[:, :-1], 1e-9)
-            monthly_returns_all_sims = np.diff(values_array, axis=1) / safe_values
+            safe_values = np.maximum(sim_result.values_array[:, :-1], 1e-9)
+            monthly_returns_all_sims = np.diff(sim_result.values_array, axis=1) / safe_values
             
             # Flatten all returns into a single array to calculate overall volatility
             all_returns_flat = monthly_returns_all_sims.flatten()
@@ -261,24 +264,24 @@ def find_time_to_goal(
             sharpe = 0
         
         # Vectorized calculation of max drawdown
-        cummax = np.maximum.accumulate(values_array, axis=1)
-        drawdowns = (values_array - cummax) / np.maximum(cummax, 1e-9)
+        cummax = np.maximum.accumulate(sim_result.values_array, axis=1)
+        drawdowns = (sim_result.values_array - cummax) / np.maximum(cummax, 1e-9)
         max_drawdowns = np.min(drawdowns, axis=1) * 100
         
         median_drawdown = np.median(max_drawdowns)
         worst_drawdown = np.min(max_drawdowns)
         
         # Rebalance statistics
-        median_rebalances = np.median(rebalance_counts)
-        p5_rebalances = np.percentile(rebalance_counts, 5)
-        p95_rebalances = np.percentile(rebalance_counts, 95)
+        median_rebalances = np.median(sim_result.rebalance_counts)
+        p5_rebalances = np.percentile(sim_result.rebalance_counts, 5)
+        p95_rebalances = np.percentile(sim_result.rebalance_counts, 95)
         
         return {
             'portfolio': portfolio_name,
             'scenario': scenario.name,
             'goal_reached': True,
             'years': years_reached,
-            'months': months_stopped,
+            'months': sim_result.months_stopped,
             goal_config.goal_metric: metric_value,
             'Median_Final_Value': median_val,
             'Avg_Final_Value': avg_val,
@@ -305,7 +308,7 @@ def find_time_to_goal(
     
     # Calculate metrics at max_years
     if years_reached > 0:
-        total_invested = sim_config.initial_investment + (months_stopped * sim_config.monthly_contribution)
+        total_invested = sim_config.initial_investment + (sim_result.months_stopped * sim_config.monthly_contribution)
         ann_return = ((median_val / total_invested) ** (1 / years_reached) - 1) * 100
         p5_ann_return = ((p5_val / total_invested) ** (1 / years_reached) - 1) * 100
     else:
@@ -313,9 +316,9 @@ def find_time_to_goal(
         p5_ann_return = 0
     
     # Vectorized calculation of volatility, Sharpe, and drawdown
-    if values_array.shape[1] > 1:
-        safe_values = np.maximum(values_array[:, :-1], 1e-9)
-        monthly_returns_all_sims = np.diff(values_array, axis=1) / safe_values
+    if sim_result.values_array.shape[1] > 1:
+        safe_values = np.maximum(sim_result.values_array[:, :-1], 1e-9)
+        monthly_returns_all_sims = np.diff(sim_result.values_array, axis=1) / safe_values
         all_returns_flat = monthly_returns_all_sims.flatten()
         
         monthly_vol = np.std(all_returns_flat)
@@ -325,23 +328,23 @@ def find_time_to_goal(
         ann_vol = 0
         sharpe = 0
     
-    cummax = np.maximum.accumulate(values_array, axis=1)
-    drawdowns = (values_array - cummax) / np.maximum(cummax, 1e-9)
+    cummax = np.maximum.accumulate(sim_result.values_array, axis=1)
+    drawdowns = (sim_result.values_array - cummax) / np.maximum(cummax, 1e-9)
     max_drawdowns = np.min(drawdowns, axis=1) * 100
     
     median_drawdown = np.median(max_drawdowns)
     worst_drawdown = np.min(max_drawdowns)
     
-    median_rebalances = np.median(rebalance_counts)
-    p5_rebalances = np.percentile(rebalance_counts, 5)
-    p95_rebalances = np.percentile(rebalance_counts, 95)
+    median_rebalances = np.median(sim_result.rebalance_counts)
+    p5_rebalances = np.percentile(sim_result.rebalance_counts, 5)
+    p95_rebalances = np.percentile(sim_result.rebalance_counts, 95)
     
     return {
         'portfolio': portfolio_name,
         'scenario': scenario.name,
         'goal_reached': False,
         'years': years_reached,
-        'months': months_stopped,
+        'months': sim_result.months_stopped,
         'Median_Final_Value': median_val,
         'Avg_Final_Value': avg_val,
         'P95_Final_Value': p95_val,

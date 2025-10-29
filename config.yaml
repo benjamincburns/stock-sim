@@ -10,7 +10,7 @@ advanced_modeling:
   use_stochastic_recovery: true
   recovery_uncertainty: 0.15
   cap_individual_losses: true
-  asymmetric_rebalancing: true
+  rebalancing_strategy: asymmetric
 
 goal_seeking:
   enable: false

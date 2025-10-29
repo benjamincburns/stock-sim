@@ -9,7 +9,7 @@ import pandas as pd
 import pyxirr
 from typing import Tuple, Dict
 
-from config import SimulationConfig, ScenarioConfig, AssetConfig
+from config import SimulationConfig, ScenarioConfig, AssetConfig, AssetTargets, AssetVolatility
 
 
 def calculate_geometric_monthly_return(total_return: np.ndarray, duration_months: int) -> np.ndarray:
@@ -118,11 +118,9 @@ def generate_scenario_returns_array(scenario: ScenarioConfig,
 def _generate_crash_returns(crash_dur: int, asset_config: AssetConfig) -> np.ndarray:
     """Generate returns for crash phase."""
     
-    # Vectorized extraction of crash targets and volatilities
-    crash_targets = np.array([asset_config.asset_targets[ticker][0] for ticker in asset_config.asset_tickers_ordered])
-    crash_stds = np.array([asset_config.asset_volatility[ticker][0] for ticker in asset_config.asset_tickers_ordered])
+    crash_targets = np.array([asset_config.asset_targets[ticker].crash_total_return for ticker in asset_config.asset_tickers_ordered])
+    crash_stds = np.array([asset_config.asset_volatility[ticker].crash for ticker in asset_config.asset_tickers_ordered])
     
-    # Vectorized calculation of geometric monthly returns
     crash_means = calculate_geometric_monthly_return(crash_targets, crash_dur)
     
     return generate_correlated_returns(
@@ -139,11 +137,9 @@ def _generate_recovery_returns(rec_dur: int,
                                sim_config: SimulationConfig) -> np.ndarray:
     """Generate returns for recovery phase."""
     
-    # Vectorized extraction of recovery targets and volatilities
-    base_recovery_targets = np.array([asset_config.asset_targets[ticker][1] for ticker in asset_config.asset_tickers_ordered])
-    recovery_stds = np.array([asset_config.asset_volatility[ticker][1] for ticker in asset_config.asset_tickers_ordered])
+    base_recovery_targets = np.array([asset_config.asset_targets[ticker].recovery_target_value for ticker in asset_config.asset_tickers_ordered])
+    recovery_stds = np.array([asset_config.asset_volatility[ticker].recovery for ticker in asset_config.asset_tickers_ordered])
     
-    # Add stochastic uncertainty to recovery target if enabled
     if sim_config.use_stochastic_recovery:
         uncertainty = np.random.uniform(
             1 - sim_config.recovery_uncertainty, 
@@ -154,12 +150,10 @@ def _generate_recovery_returns(rec_dur: int,
     else:
         final_recovery_targets = base_recovery_targets
         
-    # Vectorized calculation of total recovery return
     total_rec_return = np.divide(final_recovery_targets, crash_end_values, 
                                  out=np.zeros_like(final_recovery_targets), 
                                  where=crash_end_values!=0) - 1
     
-    # Vectorized calculation of geometric monthly returns
     recovery_means = calculate_geometric_monthly_return(total_rec_return, rec_dur)
     
     return generate_correlated_returns(
@@ -173,11 +167,9 @@ def _generate_recovery_returns(rec_dur: int,
 def _generate_growth_returns(growth_dur: int, asset_config: AssetConfig) -> np.ndarray:
     """Generate returns for growth phase."""
     
-    # Vectorized extraction of growth targets and volatilities
-    annual_returns = np.array([asset_config.asset_targets[ticker][2] for ticker in asset_config.asset_tickers_ordered])
-    growth_stds = np.array([asset_config.asset_volatility[ticker][2] for ticker in asset_config.asset_tickers_ordered])
+    annual_returns = np.array([asset_config.asset_targets[ticker].growth_annual_return for ticker in asset_config.asset_tickers_ordered])
+    growth_stds = np.array([asset_config.asset_volatility[ticker].growth for ticker in asset_config.asset_tickers_ordered])
     
-    # Vectorized calculation of monthly returns
     growth_means = (1 + annual_returns)**(1/12) - 1
     
     return generate_correlated_returns(

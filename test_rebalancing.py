@@ -143,7 +143,7 @@ class TestRebalanceCountingOnSells:
         values, rebalance_count, _ = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         # After month 1: ~$75k in first, ~$50k in second (60%/40%)
@@ -169,7 +169,7 @@ class TestRebalanceCountingOnSells:
         values, rebalance_count, _ = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         # Contributions are allocated to maintain balance, but no selling occurs
@@ -195,7 +195,7 @@ class TestRebalanceCountingOnSells:
         values, rebalance_count, _ = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=True
+            rebalancing_strategy="asymmetric"
         )
         
         # After month 1: First asset at $100k ($25k * 4), second at $75k
@@ -225,14 +225,14 @@ class TestAsymmetricVsStandardRebalancing:
         _, standard_count, _ = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         # Run with asymmetric rebalancing
         _, asymmetric_count, _ = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=True
+            rebalancing_strategy="asymmetric"
         )
         
         # Asymmetric should have fewer rebalances (wider bands)
@@ -259,14 +259,14 @@ class TestAsymmetricVsStandardRebalancing:
         _, standard_count, standard_holdings = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         # Run with asymmetric rebalancing
         _, asymmetric_count, asymmetric_holdings = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=True
+            rebalancing_strategy="asymmetric"
         )
         
         # After month 1: $65k/$50k = 56.5%/43.5% (deviation of 6.5% > 5% threshold)
@@ -298,13 +298,13 @@ class TestAsymmetricVsStandardRebalancing:
         standard_values, _, _ = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=False
+            rebalancing_strategy="symmetric"
         )
         
         asymmetric_values, _, _ = _simulate_portfolio_numba(
             target_weights, monthly_returns, contrib,
             initial_investment, rebalance_threshold, num_months,
-            asymmetric_rebalancing=True
+            rebalancing_strategy="asymmetric"
         )
         
         # With no drift, both should produce very similar results

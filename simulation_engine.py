@@ -14,8 +14,6 @@ from config import SimulationConfig, ScenarioConfig, AssetConfig
 from returns_engine import generate_scenario_returns_array
 
 
-# --- Core Numba-Optimized Simulation Logic ---
-
 @njit
 def _allocate_contribution_asymmetric(holdings_value, target_weights, contrib):
     """
@@ -70,7 +68,7 @@ def _check_asymmetric_rebalance_needed(holdings_value, target_weights):
 def _simulate_portfolio_numba(target_weights, monthly_returns_array, contrib, 
                                initial_investment, rebalance_threshold, num_months,
                                initial_holdings=None, initial_rebalance_count=0,
-                               asymmetric_rebalancing=False):
+                               rebalancing_strategy="asymmetric"):
     """
     Numba-optimized core simulation loop using pure NumPy arrays.
     """
@@ -93,11 +91,11 @@ def _simulate_portfolio_numba(target_weights, monthly_returns_array, contrib,
             break
 
         if contrib > 0:
-            if asymmetric_rebalancing:
+            if rebalancing_strategy == "asymmetric":
                 allocation_of_contribution = _allocate_contribution_asymmetric(
                     holdings_value, target_weights, contrib
                 )
-            else:
+            else: # symmetric
                 target_dollar_values_after_contrib = target_weights * (portfolio_value + contrib)
                 amount_to_buy = np.maximum(target_dollar_values_after_contrib - holdings_value, 0)
                 total_to_buy = np.sum(amount_to_buy)
@@ -110,9 +108,9 @@ def _simulate_portfolio_numba(target_weights, monthly_returns_array, contrib,
             holdings_value += allocation_of_contribution
             portfolio_value = np.sum(holdings_value)
 
-        if asymmetric_rebalancing:
+        if rebalancing_strategy == "asymmetric":
             needs_rebalance = _check_asymmetric_rebalance_needed(holdings_value, target_weights)
-        else:
+        else: # symmetric
             current_weights = holdings_value / portfolio_value
             deviation = np.abs(current_weights - target_weights)
             needs_rebalance = np.any(deviation > rebalance_threshold)
@@ -135,8 +133,6 @@ def _simulate_portfolio_numba(target_weights, monthly_returns_array, contrib,
         portfolio_values[i + 1] = portfolio_value
     
     return portfolio_values, rebalance_count, holdings_value
-
-# --- Simulation Execution ---
 
 def calculate_portfolio_metrics(portfolio_values: np.ndarray,
                                 sim_config: SimulationConfig,
@@ -263,7 +259,7 @@ def run_single_mc_iteration_refactored(
                 num_months,
                 None,  # initial_holdings
                 0,     # initial_rebalance_count
-                sim_config.asymmetric_rebalancing
+                sim_config.rebalancing_strategy
             )
             
             # Calculate metrics

@@ -2,8 +2,6 @@ from dataclasses import dataclass
 import pandas as pd
 from typing import Dict, List, Any
 
-# --- Result Data Structures ---
-
 @dataclass(frozen=True)
 class StandardSimulationResults:
     """Holds the aggregated results of a standard time-bounded simulation."""
@@ -13,8 +11,6 @@ class StandardSimulationResults:
 class GoalSeekingResults:
     """Holds the results of a goal-seeking analysis."""
     results: List[Dict[str, Any]]
-
-# --- Console Reporting Functions ---
 
 def print_standard_results(results: StandardSimulationResults, config, portfolios, scenarios):
     """Renders the results of a standard simulation to the console."""
